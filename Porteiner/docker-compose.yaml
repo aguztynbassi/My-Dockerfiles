@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+
+  Porteiner:
+    image: portainer/portainer:1.24.2-alpine
+    ports:
+      - 9000:9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /$HOME/Porteiner/data:/data
+    restart: unless-stopped

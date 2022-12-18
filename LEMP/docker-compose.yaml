@@ -1,0 +1,76 @@
+version: '3'
+
+services:
+
+  nginx-proxy:
+	image: jwilder/nginx-proxy:alpine
+	restart: unless-stopped
+	ports:
+	  - "80:80"
+	  - "443:443"
+	volumes:
+	  - /var/run/docker.sock:/tmp/docker.sock:ro
+	  - certs:/etc/nginx/certs:ro
+	  - confd:/etc/nginx/conf.d
+	  - vhostd:/etc/nginx/vhost.d
+	  - html:/usr/share/nginx/html
+	labels:
+	  - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy
+
+  letsencrypt:
+	image: jrcs/letsencrypt-nginx-proxy-companion:stable
+	restart: unless-stopped
+	volumes:
+	  - certs:/etc/nginx/certs:rw
+	  - confd:/etc/nginx/conf.d
+	  - vhostd:/etc/nginx/vhost.d
+	  - html:/usr/share/nginx/html
+	  - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  php-fpm-app:
+	image: php:8.0.6-fpm-alpine3.13
+	restart: unless-stopped
+	volumes:
+	  - ./app:/var/www/html
+	environment:
+	  - VIRTUAL_HOST: ${VIRTUAL_HOST:?err}
+	  - LETSENCRYPT_HOST: ${LETSENCRYPT_HOST:?err}
+	  - LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?err}
+	depends_on:
+	  - nginx-proxy
+	  - letsencrypt
+	expose:
+	  - "80"
+	ports:	
+	  - 9000:9000
+        links:
+          - database:database
+		
+  database:
+	image: mysql:8.0.25
+	command: --default-autentication-plugin=mysql_native_password
+	tty: true
+	ports:
+	  - "3306:3306"
+	environment:
+	  - MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?err}
+	  - MYSQL_DATABASE: ${MYSQL_DATABASE:?err}
+	restart: unless-stopped
+
+  phpMyadmin:
+	image: phpmyadmin:phpmyadmin
+	restart: unless-stopped
+	ports:
+	  - 8080:8080
+	links:
+	  - database:database
+	environment:
+	  - PMA_ARBITRARY: ${PMA_ARBITRARY:?err}
+	  - MYSQL_USER: ${YSQL_USER:?err}
+	  - MYSQL_PASSWORD: ${MYSQL_PASSWORD:?err}
+
+volumes:
+  certs:
+  html:
+  vhostd:
+  confd:

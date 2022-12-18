@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+    
+  nginx-proxy:
+	image: jwilder/nginx-proxy:alpine
+	restart: unless-stopped
+	ports:
+	  - "80:80"
+	  - "443:443"
+	volumes:
+	  - /var/run/docker.sock:/tmp/docker.sock:ro
+	  - certs:/etc/nginx/certs:ro
+	  - confd:/etc/nginx/conf.d
+	  - vhostd:/etc/nginx/vhost.d
+	  - html:/usr/share/nginx/html
+	labels:
+	  - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy
+
+  letsencrypt:
+	image: jrcs/letsencrypt-nginx-proxy-companion:stable
+	restart: unless-stopped
+	volumes:
+	  - certs:/etc/nginx/certs:rw
+	  - confd:/etc/nginx/conf.d
+	  - vhostd:/etc/nginx/vhost.d
+	  - html:/usr/share/nginx/html
+	  - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+  Wordpress:
+	image: wordpress:php8.0-apache
+	ports:
+	  - 8080:80
+	environment:
+	  - WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST:?err}
+	  - WORDPRESS_DB_USER: ${WORDPRESS_DB_USER:?err}
+	  - WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD:?err}
+	  - WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME:?err}
+	  - VIRTUAL_HOST: ${VIRTUAL_HOST:?err}
+	  - LETSENCRYPT_HOST: ${LETSENCRYPT_HOST:?err}
+	  - LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?err}
+	restart: unless-stopped
+	links:
+	  - wordpressdb:wordpressdb 
+
+  wordpressdb:
+	image: mysql:8.0.25
+	command: --default-autentication-plugin=mysql_native_password
+	tty: true
+	environment:
+	  - MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?err}
+	  - MYSQL_DATABASE: ${MYSQL_DATABASE:?err}
+	volumes:
+	  - ~/wordpress/database:/var/lib/mysql
+	restart: unless-stopped
+
+  phpMyadmin:
+	image: phpmyadmin:phpmyadmin
+	restart: unless-stopped
+	ports:
+	  - 8080:8080
+	links:
+	  - wordpressdb:wordpressdb
+	environment:
+	  - PMA_ARBITRARY: ${PMA_ARBITRARY:?err}
+	  - MYSQL_USER: ${YSQL_USER:?err}
+	  - MYSQL_PASSWORD: ${MYSQL_PASSWORD:?err}
+
+volumes:
+	certs:
+	confd:
+	vhostd:
+	html:

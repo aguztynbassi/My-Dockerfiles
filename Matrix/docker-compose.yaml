@@ -1,0 +1,46 @@
+version: '3.3'
+
+services:
+
+  nginx-proxy:
+	image: jwilder/nginx-proxy:alpine
+	restart: unless-stopped
+	ports:
+	  - "80:80"
+	  - "443:443"
+	volumes:
+	  - /var/run/docker.sock:/tmp/docker.sock:ro
+	  - certs:/etc/nginx/certs:ro
+	  - confd:/etc/nginx/conf.d
+	  - vhostd:/etc/nginx/vhost.d
+	  - html:/usr/share/nginx/html
+	labels:
+	  - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy
+
+  letsencrypt:
+	image: jrcs/letsencrypt-nginx-proxy-companion:stable
+	restart: unless-stopped
+	volumes:
+	  - certs:/etc/nginx/certs:rw
+	  - confd:/etc/nginx/conf.d
+	  - vhostd:/etc/nginx/vhost.d
+	  - html:/usr/share/nginx/html
+	  - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  synapse:
+	image: matrixdotorg/synapse
+	restart: unless-stopped
+	expose:
+	  - "8008"
+	volumes:
+	  - ./synapse-data:/data
+	environment:
+	  - VIRTUAL_PORT: 8008
+	  - VIRTUAL_HOST: ${VIRTUAL_HOST:?err}
+	  - LETSENCRYPT_HOST: ${LETSENCRYPT_HOST:?err}
+	  - LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?err}
+volumes:
+  certs:
+  confd:
+  vhostd:
+  html:
